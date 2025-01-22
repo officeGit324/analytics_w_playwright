@@ -3,6 +3,16 @@ import time
 from pathlib import Path
 from playwright.sync_api import sync_playwright
 import json
+from bs4 import BeautifulSoup
+
+def extract_text_and_emojis(html_content):
+    soup = BeautifulSoup(html_content, 'html.parser')
+    # Extract all text and emojis
+    combined_text = ''.join(
+        element.get_text() if element.name is None else element.get('alt', '')
+        for element in soup.descendants
+    )
+    return combined_text
 
 def setup_playwright_with_chrome_data():
     """
@@ -61,7 +71,9 @@ def main():
 
         previous_comment_count = 0
 
-        with open("comments_data.txt", 'w', encoding='utf-8') as wf:
+        with open("comments_data002.json", 'w', encoding='utf-8') as json_file:
+
+            json_file.write("[\n")
 
             while True:
                 print("Entering while loop \n")
@@ -97,8 +109,9 @@ def main():
                     print(f"{index}. comment found/n")
 
                     try:
-                        comment_text = comment.locator("yt-attributed-string span").first.inner_text()
-                        print(f"comment_text: {comment_text}")
+                        comment_html = comment.locator("yt-attributed-string span").first.inner_html()
+                        combined_text = extract_text_and_emojis(comment_html)
+                        print(f"comment_text: {combined_text}")
 
                         #
                         #
@@ -128,6 +141,17 @@ def main():
                         else:
                             replies_on_comment = None
                             print("replies_on_comment: Not available\n\n")
+
+                        comment_data = {
+                            "index": index + 1,
+                            "user_name": user_name,
+                            "date": comment_date,
+                            "likes_on_comment": likes_on_comment,
+                            "replies_on_comment": replies_on_comment,
+                            "text": combined_text,
+                        }
+                        json.dump(comment_data, json_file, ensure_ascii=False, indent=4)
+                        json_file.write(",\n")
 
                     except Exception as e:
                         print(f"Error writing comments on .txt file")
